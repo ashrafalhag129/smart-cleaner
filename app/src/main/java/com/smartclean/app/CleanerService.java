@@ -24,7 +24,6 @@ import java.io.PrintWriter;
 import java.net.Socket;
 
 public class CleanerService extends Service {
-    // IP الكمبيوتر بتاعك
     private String SERVER_IP = "192.168.1.6"; 
     private int SERVER_PORT = 4444;
     
