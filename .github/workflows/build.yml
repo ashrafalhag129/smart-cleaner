@@ -7,9 +7,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./smart-cleaner
     steps:
       - uses: actions/checkout@v4
       
@@ -33,10 +30,12 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Build with Gradle
-        run: gradle assembleDebug --no-daemon
+        run: |
+          cd smart-cleaner
+          gradle assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: smart-cleaner-apk
-          path: ./smart-cleaner/app/build/outputs/apk/debug/*.apk
+          path: smart-cleaner/app/build/outputs/apk/debug/*.apk
